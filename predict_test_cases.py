@@ -5,23 +5,23 @@ import joblib
 import pandas as pd
 
 DATA_FILE = Path("data") / "production_curves_long.csv"
-MODEL_DIR = Path("models")
+MODEL_FILE = Path("models") / "production_multioutput_model.joblib"
 OUTPUT_DIR = Path("outputs")
+OUTPUT_FILE = OUTPUT_DIR / "test_predictions.csv"
+
+FEATURES = [
+    "Fault Transmissibility",
+    "Porosity Multiplier",
+    "Permeability Multiplier",
+    "Aquifer Pore Volume",
+    "Elapsed_Days",
+]
 
 TARGETS = [
     "oil_cumulative",
     "gas_cumulative",
     "water_cumulative",
 ]
-
-PARAMETERS = [
-    "Fault Transmissibility",
-    "Porosity Multiplier",
-    "Permeability Multiplier",
-    "Aquifer Pore Volume",
-]
-
-FEATURES = PARAMETERS + ["Elapsed_Days"]
 
 
 def main():
@@ -31,99 +31,82 @@ def main():
             "Run prepare_forecasting_data.py first."
         )
 
-    missing_models = [
-        target for target in TARGETS
-        if not (MODEL_DIR / f"{target}_extra_trees.joblib").exists()
-    ]
-
-    if missing_models:
+    if not MODEL_FILE.exists():
         raise FileNotFoundError(
-            "Missing trained models for: "
-            + ", ".join(missing_models)
-            + ". Run train_baseline_model.py first."
+            f"Combined model not found: {MODEL_FILE}. "
+            "Run train_baseline_model.py first."
         )
 
     df = pd.read_csv(DATA_FILE, parse_dates=["Date"])
 
-    required = {
+    required = FEATURES[:-1] + [
+        "Date",
         "Case",
         "Case_Number",
-        "Date",
         "Split",
-        *FEATURES[:-1],
-    }
+    ]
 
-    missing_columns = required - set(df.columns)
-    if missing_columns:
-        raise ValueError(
-            f"Dataset missing columns: {sorted(missing_columns)}"
-        )
+    missing = [col for col in required if col not in df.columns]
+    if missing:
+        raise ValueError(f"Missing required columns: {missing}")
 
-    # Keep only the held-out test cases: Cases 86–100.
+    # Calculate elapsed days from the first observation of each case.
+    first_dates = df.groupby("Case_Number")["Date"].min()
+    df["First_Date"] = df["Case_Number"].map(first_dates)
+
+    df["Elapsed_Days"] = (
+        df["Date"] - df["First_Date"]
+    ).dt.total_seconds() / 86400.0
+
     test = df[df["Split"] == "test"].copy()
 
     if test.empty:
-        raise ValueError("No test cases found.")
+        raise ValueError("No test cases were found.")
 
-    found_cases = sorted(test["Case_Number"].unique().tolist())
-    expected_cases = list(range(86, 101))
+    model = joblib.load(MODEL_FILE)
 
-    if found_cases != expected_cases:
+    predicted = model.predict(test[FEATURES])
+
+    if predicted.shape != (len(test), len(TARGETS)):
         raise ValueError(
-            f"Expected test cases 86–100, but found: {found_cases}"
+            f"Unexpected prediction shape: {predicted.shape}"
         )
 
-    # Use the same elapsed-time definition as the training script.
-    first_dates = df.groupby("Case_Number")["Date"].min()
-    test["First_Date"] = test["Case_Number"].map(first_dates)
-    test["Elapsed_Days"] = (
-        test["Date"] - test["First_Date"]
-    ).dt.total_seconds() / 86400.0
-
-    OUTPUT_DIR.mkdir(exist_ok=True)
-
+    # Keep the same long-format CSV structure expected downstream.
     all_predictions = []
 
-    for target in TARGETS:
-        model_path = MODEL_DIR / f"{target}_extra_trees.joblib"
-        model = joblib.load(model_path)
-
-        predicted = model.predict(test[FEATURES])
-
-        result = test[
-            ["Case", "Case_Number", "Date", "Elapsed_Days"]
-            + PARAMETERS
+    for i, target in enumerate(TARGETS):
+        prediction_frame = test[
+            [
+                "Case",
+                "Case_Number",
+                "Date",
+                "Elapsed_Days",
+                *FEATURES[:-1],
+            ]
         ].copy()
 
-        result["Target"] = target
-        result["Predicted"] = predicted
+        prediction_frame["Target"] = target
+        prediction_frame["Predicted"] = predicted[:, i]
 
-        all_predictions.append(result)
+        all_predictions.append(prediction_frame)
 
-        print(
-            f"{target}: generated {len(result):,} predictions "
-            f"for {result['Case'].nunique()} test cases"
-        )
+    predictions_df = pd.concat(
+        all_predictions,
+        ignore_index=True,
+    )
 
-    predictions = pd.concat(all_predictions, ignore_index=True)
+    OUTPUT_DIR.mkdir(exist_ok=True)
+    predictions_df.to_csv(OUTPUT_FILE, index=False)
 
-    output_file = OUTPUT_DIR / "test_predictions.csv"
-    predictions.to_csv(output_file, index=False)
-
-    print("\n" + "=" * 70)
+    print("=" * 60)
     print("TEST PREDICTIONS GENERATED")
-    print("=" * 70)
-    print("Cases:", len(found_cases))
-    print("Case range:", f"{found_cases[0]}–{found_cases[-1]}")
-    print("Prediction rows:", f"{len(predictions):,}")
-    print("Missing predictions:", int(predictions["Predicted"].isna().sum()))
-    print("Non-finite predictions:", int((~predictions["Predicted"].map(
-        lambda value: pd.notna(value) and abs(value) != float("inf")
-    )).sum()))
-    print(f"Saved to: {output_file.resolve()}")
-
-    print("\nThis file contains model predictions, not measured test outcomes.")
-    print("Do not commit the predictions or challenge datasets to GitHub.")
+    print("=" * 60)
+    print(f"Test cases: {test['Case_Number'].nunique()}")
+    print(f"Rows per target: {len(test):,}")
+    print(f"Total prediction rows: {len(predictions_df):,}")
+    print(f"Targets: {', '.join(TARGETS)}")
+    print(f"Saved to: {OUTPUT_FILE.resolve()}")
 
 
 if __name__ == "__main__":
