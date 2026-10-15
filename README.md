@@ -1,199 +1,141 @@
-ExxonMobil DataWorks Challenge 2026
+# ExxonMobil DataWorks Challenge 2026
 
-Machine Learning-Assisted History Matching and Production Forecasting
+## Machine Learning-Assisted History Matching and Production Forecasting
 
-Project Overview
+## 📌 Project Overview
 
-This project explores the application of machine learning to production history matching and forecasting. It uses production history and reservoir uncertainty parameters to develop a data-driven workflow for predicting cumulative oil, gas, and water production.
+This project explores the use of machine learning for production history matching and forecasting. It uses reservoir uncertainty parameters and historical production data to predict cumulative oil, gas, and water production.
 
-The project focuses on preparing production data, training a baseline machine learning model, evaluating predictions on validation cases, and generating predictions for test cases.
+The project covers data preparation, model training, validation, test prediction generation, and Excel deliverable preparation.
 
-Objectives
+## 🎯 Objectives
 
-Prepare and combine reservoir uncertainty parameters with historical production data.
+- Prepare and combine reservoir uncertainty parameters with historical production data.
+- Develop a baseline machine learning model.
+- Evaluate model performance using validation cases.
+- Generate predictions for unseen test cases.
+- Prepare predicted production values for the Excel deliverable template.
+- Compare model performance against a simple baseline approach.
 
-Develop a baseline machine learning model to predict cumulative production.
+## 🛠️ Technologies Used
 
-Evaluate model performance using validation data.
+- **Python** — Data processing and model development
+- **Pandas** — Data manipulation and preparation
+- **NumPy** — Numerical operations
+- **Scikit-learn** — Machine learning and model evaluation
+- **OpenPyXL** — Excel workbook processing
+- **Git and GitHub** — Version control
 
-Generate predictions for test cases.
+## 📊 Project Workflow
 
-Prepare predicted production values for the required Excel deliverable template.
+### 1. Data Preparation
 
-Compare model performance against a simple baseline forecasting approach.
+The workflow combines reservoir uncertainty parameters with historical production data.
 
-Technologies Used
+The uncertainty parameters include:
 
-Python — data processing, model development, and prediction generation.
+- Fault Transmissibility
+- Porosity Multiplier
+- Permeability Multiplier
+- Aquifer Pore Volume
 
-Pandas — data manipulation and preparation.
+The production data contains cumulative oil, gas, and water production records.
 
-NumPy — numerical operations.
-
-Scikit-learn — machine learning pipelines, imputation, Extra Trees regression, and model evaluation.
-
-OpenPyXL — Excel workbook processing.
-
-Git and GitHub — source code version control.
-
-Project Workflow
-
-1. Data Inspection and Preparation
-
-The workflow examines the reservoir uncertainty parameters and historical production datasets. The uncertainty parameters include:
-
-Fault Transmissibility
-
-Porosity Multiplier
-
-Permeability Multiplier
-
-Aquifer Pore Volume
-
-The production datasets contain cumulative oil, gas, and water production observations.
-
-The preparation process combines the uncertainty parameters with the corresponding production records and creates a structured dataset for model development.
-
-2. Dataset Splitting
+### 2. Dataset Splitting
 
 The current workflow uses the following case groups:
 
-Dataset
+| Dataset | Cases | Purpose |
+| :--- | :--- | :--- |
+| Training | 1–70 | Train the model |
+| Validation | 71–85 | Evaluate model performance |
+| Testing | 86–100 | Generate predictions for unseen cases |
 
-Cases
+### 3. Machine Learning Model
 
-Purpose
+An **Extra Trees Regressor** is used as the baseline machine learning model.
 
-Training
+**Input features:**
+- Fault Transmissibility
+- Porosity Multiplier
+- Permeability Multiplier
+- Aquifer Pore Volume
+- Elapsed time
 
-1–70
+**Model configuration:**
+- Number of trees: `200`
+- Minimum samples per leaf: `2`
+- Maximum features: `1.0`
+- Random state: `42`
+- Missing-value imputation: Median
 
-Train the machine learning model
+Separate models are trained to predict cumulative oil, gas, and water production.
 
-Validation
+### 4. Model Evaluation
 
-71–85
+Model performance is evaluated using validation cases and Root Mean Squared Error (RMSE).
 
-Evaluate model performance
+The results are compared against a simple baseline approach to assess relative performance.
 
-Testing
+### 5. Test Predictions
 
-86–100
+The trained models generate predictions for Test Cases 86–100. The predictions are saved in a CSV file for further processing.
 
-Generate predictions for unseen cases
+### 6. Excel Deliverable
 
-The split is based on case IDs. The test cases are kept separate from model training.
+The `fill_template.py` script transfers the generated predictions into the Excel deliverable template.
 
-3. Baseline Machine Learning Model
+The current implementation maps Template Cases 1–10 to Test Cases 86–95. This mapping must be confirmed against the official challenge requirements.
 
-An Extra Trees Regressor is used as the baseline machine learning model.
+The script also extends predictions beyond the available historical dates using a simple final-year trend. These extended values are preliminary and have not been validated as reliable long-term forecasts.
 
-The model uses the four reservoir uncertainty parameters and elapsed time as input features to predict cumulative production.
+## 📁 Main Python Scripts
 
-The current model configuration includes:
+| Script | Description |
+| :--- | :--- |
+| `prepare_forecasting_data.py` | Prepares the production dataset. |
+| `train_baseline_model.py` | Trains the baseline machine learning models. |
+| `predict_test_cases.py` | Generates predictions for the test cases. |
+| `compare_baselines.py` | Compares model performance against a baseline. |
+| `evaluate_validation.py` | Evaluates validation predictions. |
+| `check_forecasting_dates.py` | Checks date coverage and observation counts. |
+| `fill_template.py` | Fills the Excel deliverable template. |
+| `inspect_history.py` | Inspects historical production data. |
+| `compare_history_match.py` | Compares history-matching results. |
+| `analyze_best_cases.py` | Analyses candidate history-matching cases. |
 
-200 decision trees
+Additional scripts support data inspection and analysis.
 
-Minimum samples per leaf of 2
+## 🚀 Getting Started
 
-Maximum features set to 1.0
+### 1. Install Dependencies
 
-Random state of 42
-
-Median imputation within a scikit-learn pipeline
-
-Separate models are trained for cumulative oil, gas, and water production.
-
-4. Model Evaluation
-
-The model is evaluated using validation cases and Root Mean Squared Error (RMSE).
-
-The validation results are also compared with a simple baseline approach to assess relative performance. Model performance should be interpreted in the context of the validation design, prediction horizon, and baseline methodology.
-
-5. Test Case Predictions
-
-The trained models generate predictions for Test Cases 86–100. The prediction output is saved as a CSV file for further processing.
-
-6. Excel Deliverable Preparation
-
-The fill_template.py script prepares a filled Excel workbook using the generated test predictions and the supplied deliverable template.
-
-The current implementation maps template Cases 1–10 to Test Cases 86–95. This mapping is an assumption and must be confirmed against the official challenge requirements.
-
-The current script also extends predictions beyond the available historical prediction dates using a simple final-year trend. These extended values are preliminary and should not be treated as validated long-term forecasts.
-
-Source Code
-
-The repository contains Python scripts for different stages of the workflow, including:
-
-Script
-
-Purpose
-
-prepare_forecasting_data.py
-
-Combines uncertainty parameters and production records into a structured dataset.
-
-train_baseline_model.py
-
-Trains the baseline Extra Trees models and evaluates validation performance.
-
-predict_test_cases.py
-
-Generates production predictions for the test cases.
-
-compare_baselines.py
-
-Compares the machine learning model with a simple baseline approach.
-
-evaluate_validation.py
-
-Evaluates predictions on the validation dataset.
-
-check_forecasting_dates.py
-
-Checks date coverage and observation counts across the dataset splits.
-
-fill_template.py
-
-Transfers test predictions into the Excel deliverable template.
-
-Additional scripts in the repository support data inspection, history matching, and analysis of candidate cases.
-
-Running the Workflow
-
-Install the required Python packages:
-
+```bash
 pip install pandas numpy scikit-learn openpyxl joblib
+```
 
-Run the main workflow scripts from the project root:
+### 2. Run the Workflow
 
+Run the scripts from the project root directory:
+
+```bash
 python prepare_forecasting_data.py
 python train_baseline_model.py
 python predict_test_cases.py
 python fill_template.py
+```
 
-Ensure that the required input datasets and Excel template are available in the locations expected by each script. Run the preparation and training stages before generating test predictions and filling the template.
+Ensure the required input files are available at the paths expected by each script.
 
-The exact script execution order may depend on the paths and output files configured in each script.
+## ⚠️ Limitations and Future Improvements
 
-Limitations and Future Improvements
+- The Extra Trees model does not naturally extrapolate production trends beyond its training date range.
+- Forecasts extending to 2028 require a suitable forecasting method and additional validation.
+- The mapping between template cases and test cases must be confirmed.
+- Further evaluation is needed to assess forecast plausibility and performance over longer time horizons.
 
-The Extra Trees model is a baseline model and does not naturally extrapolate production trends beyond the range of dates represented in its training data.
+## 🔒 Data Confidentiality
 
-Long-term forecasts extending to 2028 require a more appropriate forecasting strategy and additional validation.
+Challenge-provided datasets, starter workbooks, and generated deliverables are excluded from this public repository.
 
-The current Excel template case mapping must be confirmed against the official deliverable instructions.
-
-Further testing is needed to assess forecast plausibility, cumulative production behaviour, and performance over different forecast horizons.
-
-Additional forecasting approaches and time-based validation strategies can be explored to improve reliability.
-
-Data and Confidentiality
-
-This repository is intended to document the source code and modelling workflow.
-
-Challenge-provided datasets, starter workbooks, and generated deliverables are not included in the public repository. The challenge materials should be handled in accordance with the official competition rules and confidentiality requirements.
-
-
-
+All challenge materials must be handled in accordance with the official competition rules and confidentiality requirements.
