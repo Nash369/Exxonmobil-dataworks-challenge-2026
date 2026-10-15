@@ -218,3 +218,20 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+# ExxonMobil DataWorks Challenge datasets
+*.xlsx
+*.xls
+*.xlsm
+*.csv
+
+# Local datasets and generated outputs
+data/
+models/
+outputs/
+
+# Environment variables
+.env
+.env.*
+!.env.example
