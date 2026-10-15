@@ -136,6 +136,7 @@ Ensure the required input files are available at the paths expected by each scri
 
 ## 🔒 Data Confidentiality
 
-Challenge-provided datasets, starter workbooks, and generated deliverables are excluded from this public repository.
+Challenge-provided datasets, starter workbooks, and generated deliverables are not included in the public repository. The challenge materials should be handled in accordance with the official competition rules and confidentiality requirements.
 
-All challenge materials must be handled in accordance with the official competition rules and confidentiality requirements..
+
+
