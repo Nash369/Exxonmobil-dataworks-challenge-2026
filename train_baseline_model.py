@@ -8,12 +8,14 @@ import pandas as pd
 from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.multioutput import MultiOutputRegressor
 from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
 
 DATA_FILE = Path("data") / "production_curves_long.csv"
 MODEL_DIR = Path("models")
 OUTPUT_DIR = Path("outputs")
+
+MODEL_FILE = MODEL_DIR / "production_multioutput_model.joblib"
 
 FEATURES = [
     "Fault Transmissibility",
@@ -53,7 +55,6 @@ def main():
     if missing:
         raise ValueError(f"Missing required columns: {missing}")
 
-    # Use each case's first available date as its time origin.
     first_dates = df.groupby("Case_Number")["Date"].min()
     df["First_Date"] = df["Case_Number"].map(first_dates)
 
@@ -61,7 +62,6 @@ def main():
         df["Date"] - df["First_Date"]
     ).dt.total_seconds() / 86400.0
 
-    # Keep each split separate by case, not by individual observation.
     train = df[df["Split"] == "train"].copy()
     validation = df[df["Split"] == "validation"].copy()
 
@@ -71,40 +71,48 @@ def main():
     MODEL_DIR.mkdir(exist_ok=True)
     OUTPUT_DIR.mkdir(exist_ok=True)
 
-    all_metrics = []
-    all_predictions = []
-
-    for target in TARGETS:
-        print(f"\nTraining model for {target}...")
-
-        model = make_pipeline(
-            SimpleImputer(strategy="median"),
+    # Train one model object for all three production targets.
+    # MultiOutputRegressor maintains one estimator per target internally.
+    model = make_pipeline(
+        SimpleImputer(strategy="median"),
+        MultiOutputRegressor(
             ExtraTreesRegressor(
-                n_estimators=200,
-                min_samples_leaf=2,
+                n_estimators=60,
+                min_samples_leaf=5,
                 max_features=1.0,
                 random_state=42,
                 n_jobs=-1,
             ),
+            n_jobs=1,
+        ),
+    )
+
+    print("Training combined oil, gas and water model...")
+    model.fit(train[FEATURES], train[TARGETS])
+
+    predicted = model.predict(validation[FEATURES])
+    actual = validation[TARGETS].to_numpy()
+
+    all_metrics = []
+    all_predictions = []
+
+    for i, target in enumerate(TARGETS):
+        actual_target = actual[:, i]
+        predicted_target = predicted[:, i]
+
+        model_rmse = rmse(actual_target, predicted_target)
+        model_mae = float(
+            mean_absolute_error(actual_target, predicted_target)
         )
 
-        model.fit(train[FEATURES], train[target])
-
-        predicted = model.predict(validation[FEATURES])
-        actual = validation[target].to_numpy()
-
-        model_rmse = rmse(actual, predicted)
-        model_mae = float(mean_absolute_error(actual, predicted))
-
-        # Simple baseline: use the training-set mean for every row.
         baseline_predicted = np.full(
             len(validation),
             train[target].mean(),
         )
 
-        baseline_rmse = rmse(actual, baseline_predicted)
+        baseline_rmse = rmse(actual_target, baseline_predicted)
         baseline_mae = float(
-            mean_absolute_error(actual, baseline_predicted)
+            mean_absolute_error(actual_target, baseline_predicted)
         )
 
         improvement = (
@@ -122,33 +130,27 @@ def main():
         })
 
         prediction_frame = validation[
-            ["Case", "Case_Number", "Date", "Elapsed_Days", target]
+            ["Case", "Case_Number", "Date", "Elapsed_Days"]
         ].copy()
 
-        prediction_frame = prediction_frame.rename(
-            columns={target: "Actual"}
-        )
-        prediction_frame["Predicted"] = predicted
+        prediction_frame["Actual"] = actual_target
+        prediction_frame["Predicted"] = predicted_target
         prediction_frame["Target"] = target
 
         all_predictions.append(prediction_frame)
 
-        joblib.dump(
-            model,
-            MODEL_DIR / f"{target}_extra_trees.joblib",
-        )
-
+        print(f"\n{target}")
         print(f"Validation RMSE: {model_rmse:,.3f}")
         print(f"Baseline RMSE:   {baseline_rmse:,.3f}")
         print(f"Validation MAE:  {model_mae:,.3f}")
         print(f"Baseline MAE:    {baseline_mae:,.3f}")
         print(f"RMSE improvement: {improvement:.2f}%")
 
+    # Save the combined model to one file.
+    joblib.dump(model, MODEL_FILE, compress=3)
+
     metrics_df = pd.DataFrame(all_metrics)
-    predictions_df = pd.concat(
-        all_predictions,
-        ignore_index=True,
-    )
+    predictions_df = pd.concat(all_predictions, ignore_index=True)
 
     metrics_file = OUTPUT_DIR / "validation_metrics.csv"
     predictions_file = OUTPUT_DIR / "validation_predictions.csv"
@@ -156,15 +158,17 @@ def main():
     metrics_df.to_csv(metrics_file, index=False)
     predictions_df.to_csv(predictions_file, index=False)
 
-    print("\n" + "=" * 70)
+    print("\n" + "=" * 65)
     print("VALIDATION SUMMARY")
-    print("=" * 70)
+    print("=" * 65)
     print(metrics_df.round(3).to_string(index=False))
 
-    print(f"\nMetrics saved to: {metrics_file.resolve()}")
+    print(f"\nCombined model saved to: {MODEL_FILE.resolve()}")
+    print(f"Model size: {MODEL_FILE.stat().st_size / (1024 * 1024):.2f} MB")
+    print(f"Metrics saved to: {metrics_file.resolve()}")
     print(f"Predictions saved to: {predictions_file.resolve()}")
-    print(f"Models saved in: {MODEL_DIR.resolve()}")
-    print("\nKeep generated data, models and outputs out of GitHub.")
+    print("\nExisting model files have not been deleted.")
+    print("Keep generated data, models and outputs out of public GitHub.")
 
 
 if __name__ == "__main__":
