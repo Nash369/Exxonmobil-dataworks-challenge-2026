@@ -235,3 +235,4 @@ outputs/
 .env
 .env.*
 !.env.example
+production_summary.txt
